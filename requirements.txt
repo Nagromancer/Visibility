@@ -1,6 +1,5 @@
-astropy==5.3.4
-ephem==4.1.5
-matplotlib==3.8.0
-numpy==1.26.1
-pandas==2.2.0
-path==16.7.1
+astropy
+ephem
+matplotlib
+numpy
+path
