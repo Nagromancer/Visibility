@@ -70,7 +70,6 @@ quantity_support()
 def main(args):
     plot = args.plot
     observing_date = datetime.datetime.now().strftime("%d/%m/%Y") if args.date is None else args.date
-    unfiltered_targets = args.targets
 
     # set the observatory object based on the command line argument
     if args.observatory == 'twist':
@@ -114,26 +113,47 @@ def main(args):
     delta_midnight = np.linspace(-12 - obs.longitude_offset, 12 - obs.longitude_offset, 1441) * u.hour  # One minute intervals
     times = utc_midnight + delta_midnight
     frame = AltAz(obstime=times, location=obs_site)
-    sky_coordinates = []
-    targets = []
-    for target in unfiltered_targets:
-        try:
-            sky_coordinates.append(get_body(target, times))
-            targets.append(target)
-        except KeyError:
+
+    try:
+        if len(args.targets) == 2:
+            # check if each of ra and dec strings contain two colons
+            if args.targets[0].count(':') == 2:
+                ra_sex = [float(num) for num in args.targets[0].split(':')]
+                ra = 15 * ra_sex[0] + 15 * 60 ** -1 * ra_sex[1] + 15 * 3600 ** -1 * ra_sex[2]
+            else:
+                ra = float(args.targets[0])
+            if args.targets[1].count(':') == 2:
+                dec_sex = [float(num) for num in args.targets[1].split(':')]
+                dec = dec_sex[0] + 60 ** -1 * dec_sex[1] + 3600 ** -1 * dec_sex[2]
+            else:
+                dec = float(args.targets[1])
+
+            sky_coordinates = [SkyCoord(ra=ra, dec=dec, unit='deg')]
+            targets = [f'({args.targets[0]}, {args.targets[1]})']
+        else:
+            raise ValueError
+    except ValueError:
+        unfiltered_targets = args.targets
+        sky_coordinates = []
+        targets = []
+        for target in unfiltered_targets:
             try:
-                sky_coordinates.append(SkyCoord.from_name(target))
+                sky_coordinates.append(get_body(target, times))
                 targets.append(target)
-            except name_resolve.NameResolveError:
+            except KeyError:
                 try:
-                    sky_coordinates.append(SkyCoord.from_name(target.replace(' ', '')))
+                    sky_coordinates.append(SkyCoord.from_name(target))
                     targets.append(target)
                 except name_resolve.NameResolveError:
                     try:
-                        sky_coordinates.append(SkyCoord.from_name(target.replace(' ', '-')))
+                        sky_coordinates.append(SkyCoord.from_name(target.replace(' ', '')))
                         targets.append(target)
                     except name_resolve.NameResolveError:
-                        print(f"Target {target} not found")
+                        try:
+                            sky_coordinates.append(SkyCoord.from_name(target.replace(' ', '-')))
+                            targets.append(target)
+                        except name_resolve.NameResolveError:
+                            print(f"Target {target} not found")
     if len(targets) == 0:
         print("No targets found")
         exit()
