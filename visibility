@@ -116,12 +116,10 @@ def main(args):
     frame = AltAz(obstime=times, location=obs_site)
     sky_coordinates = []
     targets = []
-    solar_system = []
     for target in unfiltered_targets:
         try:
             sky_coordinates.append(get_body(target, times))
             targets.append(target)
-            solar_system.append(True)
         except KeyError:
             try:
                 sky_coordinates.append(SkyCoord.from_name(target))
@@ -136,7 +134,6 @@ def main(args):
                         targets.append(target)
                     except name_resolve.NameResolveError:
                         print(f"Target {target} not found")
-            solar_system.append(False)
     if len(targets) == 0:
         print("No targets found")
         exit()
@@ -183,14 +180,21 @@ def main(args):
 
     obs_starts = []
     obs_ends = []
-    for target, targaltaz, moon_sep, sky_coordinate, ss in zip(targets, targaltazs, moon_seps, sky_coordinates, solar_system):
+    for target, targaltaz, moon_sep, sky_coordinate in zip(targets, targaltazs, moon_seps, sky_coordinates):
         alt = targaltaz.alt.value
         az = targaltaz.az.value
         visibility = obs.is_unobstructed(alt, az, times)
         above_min_alt = visibility
         dark_time = sunaltaz.alt < obs.max_sun_alt
-        dec = sky_coordinate.dec.value if isinstance(sky_coordinate.dec.value, float) else sky_coordinate.dec.value[0]
-        ra = sky_coordinate.ra.value if isinstance(sky_coordinate.ra.value, float) else sky_coordinate.ra.value[0]
+        if isinstance(sky_coordinate.dec.value, float):
+            dec = sky_coordinate.dec.value
+            ra = sky_coordinate.ra.value
+            ss = False
+        else:
+            dec = sky_coordinate.dec.value[0]
+            ra = sky_coordinate.ra.value[0]
+            ss = True
+
         if np.any(above_min_alt & dark_time):
             target_start = times[above_min_alt & dark_time][0]
             obs_starts.append(target_start)
@@ -314,6 +318,10 @@ def main(args):
         plt.show()
 
     if args.json is not None:
+        # do not allow if ss objects are present
+        if np.any([isinstance(sky_coordinate.dec.value, np.ndarray) for sky_coordinate in sky_coordinates]):
+            print("Solar system objects present - cannot create json file")
+            exit()
         out_path = Path(args.json) / f'{reverse_date}.json'
         dome_open = flat_start - 2 * u.min
         dome_close = flat_end + 2 * u.min
