@@ -1,5 +1,5 @@
-astropy
-ephem
-matplotlib
-numpy
-path
+astropy==6.0.0
+ephem==4.1.5
+matplotlib==3.8.2
+numpy==1.26.4
+path==16.10.0
