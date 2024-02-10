@@ -58,6 +58,7 @@ twist_min_alts = np.array([63, 63, 63, 62, 59, 53, 44, 35, 36, 36, 36, 35, 32, 3
      28, 26, 38, 50, 56, 59, 62, 63]) * u.deg
 
 twist = Observatory("Twenty Inch Survey Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2348 * u.m, twist_min_alts, 6 * u.hourangle, -12 * u.deg)
+INT = Observatory("Isaac Newton Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2396 * u.m, 33 * u.deg, 6 * u.hourangle, -18 * u.deg)
 ngts = Observatory("Next Generation Transit Survey", -24.615752 * u.deg, -70.391029 * u.deg, 2433 * u.m, 30 * u.deg, 5.3 * u.hourangle, -15 * u.deg)
 tmo = Observatory("Tom Marsh Observatory", 52.376876 * u.deg, -1.567203 * u.deg, 93 * u.m, 30 * u.deg, 4.5 * u.hourangle, -12 * u.deg)
 
@@ -76,8 +77,10 @@ def main(args):
         obs = twist
     elif args.observatory == 'ngts':
         obs = ngts
-    else:
+    elif args.observatory == 'tmo':
         obs = tmo
+    else:
+        obs = INT
 
     try:
         observing_date = f"{observing_date.split('/')[0].zfill(2)}/{observing_date.split('/')[1].zfill(2)}/{observing_date.split('/')[2] if len(observing_date.split('/')[2]) == 4 else '20' + observing_date.split('/')[2]}"
@@ -412,7 +415,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Calculate visibility of targets from TWIST, NGTS or TMO.')
 
-    parser.add_argument('observatory', type=str, choices=['twist', 'ngts', 'tmo'], help='Observatory to calculate visibility for')
+    parser.add_argument('observatory', type=str, choices=['twist', 'ngts', 'tmo', 'INT'], help='Observatory to calculate visibility for')
     parser.add_argument('targets', type=str, nargs='+', help='List of targets to check visibility for')
     parser.add_argument('--plot', action='store_true', help='Plot visibility')
     parser.add_argument('--date', type=str, default=None, metavar='dd/mm/yyyy', help='Observing date (default: today)')
