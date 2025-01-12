@@ -398,7 +398,7 @@ def main(args):
             actions += [
                 {
                     "type": "AutoFocus",
-                    "start": str((target_start - 5 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
+                    "start": str((target_start - 10 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
                     "blue": {
                         "exposure": 5,
                     },
