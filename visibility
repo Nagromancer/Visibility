@@ -393,8 +393,11 @@ def main(args):
                 {
                     "type": "AutoFocus",
                     "start": str((target_start - 5 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
-                    "camera": {
-                        "exposure": 10,
+                    "blue": {
+                        "exposure": 5,
+                    },
+                    "red": {
+                        "exposure": 5,
                     },
                 },
                 {
@@ -404,14 +407,18 @@ def main(args):
                     "ra": round(sky_coordinate.ra.value, 5),
                     "dec": round(sky_coordinate.dec.value, 5),
                     "blind_offset_dra": 1,
+                    "blind_offset_ddec": 0,
+                    "guide_camera": "blue",
                     "pipeline": {
                         "object": target,
                         "prefix": target
                     },
-                    "camera": {
-                        "exposure": 10,
-                        "stream": True,
+                    "red": {
+                        "exposure": 30
                     },
+                    "blue": {
+                        "exposure": 30
+                    }
                 }
             ]
         actions += [
@@ -423,12 +430,12 @@ def main(args):
                 },
             }
         ]
-        actions += [
-            {
-                "type": "ShutdownCamera",
-                "start": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z",
-            }
-        ]
+        # actions += [
+        #     {
+        #         "type": "ShutdownCamera",
+        #         "start": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z",
+        #     }
+        # ]
         json_dict = {
             "night": night,
             "dome": dome,
