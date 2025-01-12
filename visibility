@@ -20,7 +20,7 @@ from path import Path
 
 
 class Observatory:
-    def __init__(self, name, lat, lon, height, min_alt, max_hr_angle, max_sun_alt):
+    def __init__(self, name, lat, lon, height, min_alt, max_hr_angle, max_sun_alt, max_dec=None, min_dec=None):
         self.name = name
         self.lat = lat
         self.lon = lon
@@ -29,6 +29,8 @@ class Observatory:
         self.max_hr_angle = max_hr_angle
         self.max_sun_alt = max_sun_alt
         self.min_alt = min_alt
+        self.max_dec = 90 * u.deg if max_dec is None else max_dec
+        self.min_dec = -90 * u.deg if min_dec is None else min_dec
 
     def __str__(self):
         return f"{self.name} ({self.lat}°, {self.lon}°, {self.height}m)"
@@ -42,6 +44,7 @@ class Observatory:
                          frame=AltAz(location=EarthLocation(lat=self.lat, lon=self.lon, height=self.height),
                                      obstime=times))
         hr = altaz.transform_to(astropy.coordinates.HADec).ha.value
+        dec = altaz.transform_to(astropy.coordinates.HADec).dec.value
 
         # check if min_alt has len attribute
         if hasattr(self.min_alt.value, '__len__'):
@@ -54,7 +57,8 @@ class Observatory:
         else:
             safe_alt = alt > self.min_alt.to('deg').value
             safe_hr = np.abs(hr) < self.max_hr_angle.value
-            return safe_alt & safe_hr
+            safe_dec = (self.min_dec.to('deg').value < dec) & (dec < self.max_dec.to('deg').value)
+            return safe_alt & safe_hr & safe_dec
 
 
 twist_min_alts = np.array(
@@ -64,7 +68,7 @@ twist_min_alts = np.array(
 twist = Observatory("Twenty Inch Survey Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2348 * u.m, twist_min_alts,
                     6 * u.hourangle, -12 * u.deg)
 w1m = Observatory("Warwick One Metre Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2348 * u.m, 30 * u.deg,
-                  6 * u.hourangle, -12 * u.deg)
+                  70 / 15 * u.hourangle, -12 * u.deg, 89 * u.deg, -20 * u.deg)
 INT = Observatory("Isaac Newton Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2396 * u.m, 33 * u.deg,
                   6 * u.hourangle, -18 * u.deg)
 ngts = Observatory("Next Generation Transit Survey", -24.615752 * u.deg, -70.391029 * u.deg, 2433 * u.m, 30 * u.deg,
@@ -386,6 +390,8 @@ def main(args):
                 "pipeline": {
                     "prefix": "evening-flat"
                 },
+                "blue": {},
+                "red": {}
             }
         ]
         for target, sky_coordinate, target_start, target_end in zip(targets, sky_coordinates, obs_starts, obs_ends):
@@ -406,8 +412,6 @@ def main(args):
                     "end": str(target_end.iso).replace(" ", "T").split(".")[0] + "Z",
                     "ra": round(sky_coordinate.ra.value, 5),
                     "dec": round(sky_coordinate.dec.value, 5),
-                    "blind_offset_dra": 1,
-                    "blind_offset_ddec": 0,
                     "guide_camera": "blue",
                     "pipeline": {
                         "object": target,
@@ -428,6 +432,8 @@ def main(args):
                 "pipeline": {
                     "prefix": "morning-flat"
                 },
+                "blue": {},
+                "red": {}
             }
         ]
         # actions += [
