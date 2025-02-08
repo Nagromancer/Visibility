@@ -133,6 +133,7 @@ def main(args):
     # set the observatory object based on the command line argument
     obs = observatories[args.observatory]
 
+    # string length for neat formatting so the table is aligned
     str_length = max(27 + max(len(targ) for targ in args.targets), 38)
 
     # set the observing date
@@ -156,13 +157,12 @@ def main(args):
     delta_midnight = np.round(delta_midnight.to('min'), 0).to('hour')
     times = utc_midnight + delta_midnight
 
-    # get the times of the sun and moon rise and set
-    # get the sun and moon positions
-    # get the moon illumination percentage
+    # set the observing site
     obs_site = EarthLocation(lat=obs.lat, lon=obs.lon, height=obs.height)
     obs_site_ephem = ephem.Observer()
-
     frame = AltAz(obstime=times, location=obs_site)
+
+    # get the sun and moon positions
     sunaltaz = get_sun(times).transform_to(frame)
     moonaltaz = get_body("moon", times).transform_to(frame)
     solar_midnight = (times[sunaltaz.alt.argmin()] - utc_midnight).to('hr')
@@ -172,6 +172,7 @@ def main(args):
     flat_start = times[flat_time][0]
     flat_end = times[flat_time][-1]
 
+    # get the moon illumination percentage
     moon = ephem.Moon()
     obs_site_ephem.lat = obs_site.lat.value
     obs_site_ephem.lon = obs_site.lon.value
@@ -180,13 +181,13 @@ def main(args):
     moon.compute(obs_site_ephem)
     moon_illumination = moon.moon_phase * 100
 
+    # print the observing date and moon illumination
     colour_code_colours = [Fore.BLUE, Fore.GREEN, Fore.YELLOW, Fore.RED]
     illum_colour = colour_code_colours[next(i for i, v in enumerate([25, 50, 75, 100]) if v >= moon_illumination)]
-
     errorcode("software", f"Observing date: {observing_date} (night of)")
     print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<{str_length}} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
 
-    # work out whether coordinates or target names have been passed
+    # get the targets and their coordinates, regardless of whether they are named or given as coordinates
     sky_coordinates = []
     targets = []
     idx = 0
@@ -244,6 +245,7 @@ def main(args):
         errorcode("error", "No targets found")
         exit()
 
+    # work out the lunar separation at flat times
     try:
         evening_flat_start = times[sunaltaz.alt < obs.max_flat][0]
         morning_flat_end = times[sunaltaz.alt < obs.min_flat][-1]
@@ -274,14 +276,15 @@ def main(args):
             errorcode("error", "No evening or morning flat time - aborting")
             exit()
 
+    # get the target alt-az at these times and the lunar separations
     targaltazs = [sky_coordinate.transform_to(frame) for sky_coordinate in sky_coordinates]
     moon_seps = [targaltaz.separation(moonaltaz).value for targaltaz in targaltazs]
 
+    # display the night + twilight lengths
     errorcode("message",
         f'{"Night + astronomical twilight length:":<{str_length}} '
         f"{str(floor((astro_twilight_end - astro_twilight_start).value)).zfill(2)}h {str(floor(((astro_twilight_end - astro_twilight_start).value % 1) * 60)).zfill(2)}m"
         f" - from {(utc_midnight + astro_twilight_start).strftime('%H:%M')} to {(utc_midnight + astro_twilight_end).strftime('%H:%M')}")
-
     try:
         night_start = (times[sunaltaz.alt < -18 * u.deg][0] - utc_midnight).to('hr')
         night_end = (times[sunaltaz.alt < -18 * u.deg][-1] - utc_midnight).to('hr')
@@ -293,6 +296,7 @@ def main(args):
 
     errorcode("software", "\nVisibility:")
 
+    # display the target altitudes/airmasses vs time - initial plot setup
     if plot:
         plt.rcParams['figure.dpi'] = 100
         plt.rcParams["font.size"] = 18
@@ -312,6 +316,7 @@ def main(args):
         plt.fill_between(delta_midnight, -90 * u.deg, 90 * u.deg, sunaltaz.alt < -18 * u.deg, color='#000000', zorder=0,
                          alpha=0.9)
 
+    # loop over the targets and display their visibility
     obs_starts = []
     obs_ends = []
     for target, targaltaz, moon_sep, sky_coordinate in zip(targets, targaltazs, moon_seps, sky_coordinates):
@@ -369,6 +374,7 @@ def main(args):
                 else:
                     print(Style.BRIGHT + target_out_str + Fore.RED + f" is never visible from the {obs.name}" + Style.RESET_ALL)
 
+        # plot the visibility, showing the azimuth as cardinal directions
         if plot:
             sc = plt.scatter(delta_midnight, targaltaz.alt, label=target, s=1,
                              alpha=[1 if is_v and is_night else 0.2 for is_v, is_night in zip(visibility, dark_time)])
@@ -432,6 +438,7 @@ def main(args):
                                      xytext=(delta_midnight[i], targaltaz.alt[i] + 1 * u.deg), ha='center', va='bottom',
                                      color=plot_color)
 
+    # Plot the sun and moon and finish the plot
     if plot:
         leg = plt.legend()
         new_leg = []
@@ -470,6 +477,7 @@ def main(args):
         plt.tight_layout()
         plt.show()
 
+    # Create json file
     if args.json is not None:
         errorcode("software", "\nCreating json file...")
         # currently only works for w1m
