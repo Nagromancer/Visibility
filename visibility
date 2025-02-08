@@ -291,8 +291,10 @@ def main(args):
             ra = sky_coordinate.ra.value[0]
             ss = True
 
-        pm = '+' if dec > 0 else ''
-        target_out_str = f'{f"{target} ":<25}' f'{f"({ra:.5f}°, {pm}{dec:.5f}°):":<26}'
+        pm = '+' if dec > 0 else '-'
+        dec_str = pm + f"{abs(dec):.5f}°".zfill(9)
+        ra_str = f"{ra:.5f}°".zfill(10)
+        target_out_str = f'{f"{target} ":<25}' f'{f"({ra_str}, {dec_str}):":<26}'
         if np.any(above_min_alt & dark_time):
             target_start = times[above_min_alt & dark_time][0]
             obs_starts.append(target_start)
