@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import json
+import sys
 from math import floor
 
 import astropy.coordinates
@@ -40,6 +41,7 @@ class Observatory:
 
     def is_unobstructed(self, alt, az, times):
         # convert alt, az to hour angle, declination using the observatory's latitude
+        # times are arbitrary but needed for the transformation with skycoord
         altaz = SkyCoord(alt=alt, az=az, unit='deg',
                          frame=AltAz(location=EarthLocation(lat=self.lat, lon=self.lon, height=self.height),
                                      obstime=times))
@@ -90,27 +92,25 @@ def update_handle(handle, orig):
     handle.set_alpha(1)
 
 
-quantity_support()
-
-
 def main(args):
+    quantity_support()
     plot = args.plot
     observing_date = datetime.datetime.now().strftime("%d/%m/%Y") if args.date is None else args.date
 
     # set the observatory object based on the command line argument
-
     obs = observatories[args.observatory]
 
+    # set the observing date
     try:
         observing_date = f"{observing_date.split('/')[0].zfill(2)}/{observing_date.split('/')[1].zfill(2)}/{observing_date.split('/')[2] if len(observing_date.split('/')[2]) == 4 else '20' + observing_date.split('/')[2]}"
     except IndexError:
-        print(f"Invalid observing date: {observing_date} (usage: --date dd/mm/yyyy)")
+        print(f"Invalid observing date: {observing_date} (usage: --date dd/mm/yyyy or --date d/m/yy)")
         exit()
     formatted_date = f"{observing_date.split('/')[2]}-{observing_date.split('/')[1]}-{observing_date.split('/')[0]}"  # YYYY-MM-DD for the date lookup
     reverse_date = formatted_date.replace('-', '')  # YYYYMMDD for the json file name
 
+    # get the moon illumination percentage
     obs_site = EarthLocation(lat=obs.lat, lon=obs.lon, height=obs.height)
-
     obs_site_ephem = ephem.Observer()
     moon = ephem.Moon()
     obs_site_ephem.lat = obs_site.lat.value
@@ -127,32 +127,42 @@ def main(args):
     print(f"Observing date: {observing_date} (night of)")
     print(f"Moon illumination: {moon_illumination:.0f}%")
 
+    # set the observing time. use longitude offset to ensure times cover the whole night - start/end is during the day
     try:
         utc_midnight = Time(f'{formatted_date} 23:59:00') + 1 * u.min
     except ValueError:
-        print(f"Invalid observing date: {observing_date} (usage: --date dd/mm/yyyy)")
+        print(f"Invalid observing date: {observing_date} (usage: --date dd/mm/yyyy or --date yyyymmdd)")
         exit()
     delta_midnight = np.linspace(-12 - obs.longitude_offset, 12 - obs.longitude_offset,
                                  1441) * u.hour  # One minute intervals
+    # round down to the nearest minute
+    delta_midnight = np.round(delta_midnight.to('min'), 0).to('hour')
     times = utc_midnight + delta_midnight
     frame = AltAz(obstime=times, location=obs_site)
 
     try:
-        if len(args.targets) == 2:
-            # check if each of ra and dec strings contain two colons
-            if args.targets[0].count(':') == 2:
-                ra_sex = [float(num) for num in args.targets[0].split(':')]
-                ra = 15 * ra_sex[0] + 15 * 60 ** -1 * ra_sex[1] + 15 * 3600 ** -1 * ra_sex[2]
-            else:
-                ra = float(args.targets[0])
-            if args.targets[1].count(':') == 2:
-                dec_sex = [float(num) for num in args.targets[1].split(':')]
-                dec = dec_sex[0] + 60 ** -1 * dec_sex[1] + 3600 ** -1 * dec_sex[2]
-            else:
-                dec = float(args.targets[1])
+        if (len(args.targets) % 2) == 0:
+            sky_coordinates = []
+            for i in range(0, len(args.targets), 2):
+                # check if each of ra and dec strings contain two colons
+                if args.targets[i // 2].count(':') == 2:
+                    ra_sex = [float(num) for num in args.targets[i].split(':')]
+                    ra = 15 * ra_sex[0] + 15 * 60 ** -1 * ra_sex[1] + 15 * 3600 ** -1 * ra_sex[2]
+                else:
+                    ra = float(args.targets[i])
+                if args.targets[i + 1].count(':') == 2:
+                    dec_sex = [float(num) for num in args.targets[i + 1].split(':')]
+                    dec = dec_sex[0] + 60 ** -1 * dec_sex[1] + 3600 ** -1 * dec_sex[2]
+                else:
+                    dec = float(args.targets[i + 1])
 
-            sky_coordinates = [SkyCoord(ra=ra, dec=dec, unit='deg')]
-            targets = [f'({args.targets[0]}, {args.targets[1]})']
+                sky_coordinates += [SkyCoord(ra=ra, dec=dec, unit='deg')]
+            if (args.names is None) or (len(args.names) != (len(args.targets) // 2)):
+                print(f"len(args.names): {len(args.names)}")
+                print(f"len(targets): {len(args.targets)}")
+                targets = [f"Target {i + 1}" for i in range(len(sky_coordinates))]
+            else:
+                targets = args.names
         else:
             raise ValueError
     except ValueError:
@@ -451,14 +461,17 @@ def main(args):
 
 
 if __name__ == '__main__':
+    sys.argv = [f" {arg}" if (arg.startswith("-") and arg.count(':') == 2) else arg for arg in sys.argv]
+
     parser = argparse.ArgumentParser(description='Calculate visibility of targets from TWIST, NGTS or TMO.')
 
     parser.add_argument('observatory', type=str, choices=['twist', 'ngts', 'tmo', 'INT', 'w1m'],
                         help='Observatory to calculate visibility for')
-    parser.add_argument('targets', type=str, nargs='+', help='List of targets to check visibility for')
-    parser.add_argument('--plot', action='store_true', help='Plot visibility')
-    parser.add_argument('--date', type=str, default=None, metavar='dd/mm/yyyy', help='Observing date (default: today)')
-    parser.add_argument('--json', type=str, default=None, help='Directory to save json file to (default: no json file)')
+    parser.add_argument('targets', type=str, nargs='+', help='target(s) (or hh:mm:ss ±dd:mm:ss / ddd.dddd ±dd.dddd) to check visibility for')
+    parser.add_argument('--names', type=str, nargs='+', help='name(s) of target(s) - used if RA/Dec given')
+    parser.add_argument('--plot',  action='store_true', help='Plot visibility (default: False)')
+    parser.add_argument('--date',  type=str, default=None, metavar='dd/mm/yyyy or d/m/yy or yyyymmdd', help='Observing date (default: today)')
+    parser.add_argument('--json',  type=str, default=None, metavar='output/directory', help='Directory to save json file to (default: no json file)')
 
     args = parser.parse_args()
     main(args)
