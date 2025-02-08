@@ -3,3 +3,4 @@ ephem==4.1.5
 matplotlib==3.8.2
 numpy==1.26.4
 path==16.10.0
+colorama==0.4.6
