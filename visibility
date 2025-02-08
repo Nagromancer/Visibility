@@ -180,52 +180,57 @@ def main(args):
     print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<51} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
 
     # work out whether coordinates or target names have been passed
-    try:
-        print(f"length of targets: {len(args.targets)}")
-        if (len(args.targets) % 2) == 0:
-            sky_coordinates = []
-            for i in range(0, len(args.targets), 2):
-                # check if each of ra and dec strings contain two colons
-                if args.targets[i].count(':') == 2:
-                    ra_sex = [float(num) for num in args.targets[i].split(':')]
-                    ra = 15 * ra_sex[0] + 15 * 60 ** -1 * ra_sex[1] + 15 * 3600 ** -1 * ra_sex[2]
-                else:
-                    ra = float(args.targets[i])
-                if args.targets[i + 1].count(':') == 2:
-                    dec_sex = [float(num) for num in args.targets[i + 1].split(':')]
-                    dec = dec_sex[0] + 60 ** -1 * dec_sex[1] + 3600 ** -1 * dec_sex[2]
-                else:
-                    dec = float(args.targets[i + 1])
-
-                sky_coordinates += [SkyCoord(ra=ra, dec=dec, unit='deg')]
-            if (args.names is None) or (len(args.names) != (len(args.targets) // 2)):
-                targets = [f"Target {i + 1}" for i in range(len(sky_coordinates))]
+    sky_coordinates = []
+    targets = []
+    idx = 0
+    names = args.names
+    while idx < len(args.targets):
+        try:
+            # check if each of ra and dec strings contain two colons
+            if args.targets[idx].count(':') == 2:
+                ra_sex = [float(num) for num in args.targets[idx].split(':')]
+                ra = 15 * ra_sex[0] + 15 * 60 ** -1 * ra_sex[1] + 15 * 3600 ** -1 * ra_sex[2]
             else:
-                targets = args.names
-        else:
-            raise ValueError
-    except ValueError:
-        unfiltered_targets = args.targets
-        sky_coordinates = []
-        targets = []
-        for target in unfiltered_targets:
+                ra = float(args.targets[idx])
+            if args.targets[idx + 1].count(':') == 2:
+                dec_sex = [float(num) for num in args.targets[idx + 1].split(':')]
+                dec = dec_sex[0] + 60 ** -1 * dec_sex[1] + 3600 ** -1 * dec_sex[2]
+            else:
+                dec = float(args.targets[idx + 1])
+
+            sky_coordinates += [SkyCoord(ra=ra, dec=dec, unit='deg')]
+            if names is not None and len(args.names) > 0:
+                targets.append(names.pop(0))
+            else:
+                targets.append(f"Target {len(targets) + 1}")
+            idx += 2
+            continue
+        except ValueError as e:
             try:
-                sky_coordinates.append(get_body(target, times))
-                targets.append(target)
+                sky_coordinates.append(get_body(args.targets[idx], times))
+                targets.append(args.targets[idx])
+                idx += 1
+                continue
             except KeyError:
                 try:
-                    sky_coordinates.append(SkyCoord.from_name(target))
-                    targets.append(target)
+                    sky_coordinates.append(SkyCoord.from_name(args.targets[idx]))
+                    targets.append(args.targets[idx])
+                    idx += 1
+                    continue
                 except name_resolve.NameResolveError:
                     try:
-                        sky_coordinates.append(SkyCoord.from_name(target.replace(' ', '')))
-                        targets.append(target)
+                        sky_coordinates.append(SkyCoord.from_name(args.targets[idx].replace(' ', '')))
+                        targets.append(args.targets[idx])
+                        idx += 1
+                        continue
                     except name_resolve.NameResolveError:
                         try:
-                            sky_coordinates.append(SkyCoord.from_name(target.replace(' ', '-')))
-                            targets.append(target)
+                            sky_coordinates.append(SkyCoord.from_name(args.targets[idx].replace(' ', '-')))
+                            targets.append(args.targets[idx])
+                            idx += 1
+                            continue
                         except name_resolve.NameResolveError:
-                            errorcode("error", f"Target {target} not found")
+                            errorcode("error", f"Target {args.targets[idx]} not found")
     if len(targets) == 0:
         errorcode("error", "No targets found")
         exit()
