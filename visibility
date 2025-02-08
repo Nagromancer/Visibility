@@ -181,11 +181,12 @@ def main(args):
 
     # work out whether coordinates or target names have been passed
     try:
+        print(f"length of targets: {len(args.targets)}")
         if (len(args.targets) % 2) == 0:
             sky_coordinates = []
             for i in range(0, len(args.targets), 2):
                 # check if each of ra and dec strings contain two colons
-                if args.targets[i // 2].count(':') == 2:
+                if args.targets[i].count(':') == 2:
                     ra_sex = [float(num) for num in args.targets[i].split(':')]
                     ra = 15 * ra_sex[0] + 15 * 60 ** -1 * ra_sex[1] + 15 * 3600 ** -1 * ra_sex[2]
                 else:
@@ -293,7 +294,7 @@ def main(args):
             target_up_moon_sep = moon_sep[above_min_alt & dark_time]
             obs_time_hours = (target_end - target_start).value * 24
             obs_time_colour = colour_code_colours[::-1][next(i for i, v in enumerate([2, 4, 6, 10]) if v >= obs_time_hours)]
-            mean_lunar_sep = 75
+            mean_lunar_sep = np.mean(target_up_moon_sep)
             lunar_sep_colour = colour_code_colours[::-1][next(i for i, v in enumerate([30, 60, 90, 180]) if v >= mean_lunar_sep)]
             print(Style.BRIGHT +
                 f"{target_out_str} " +
