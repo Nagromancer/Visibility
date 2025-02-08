@@ -128,6 +128,8 @@ def main(args):
     # set the observatory object based on the command line argument
     obs = observatories[args.observatory]
 
+    str_length = max(27 + max(len(targ) for targ in args.targets), 38)
+
     # set the observing date
     try:
         observing_date = f"{observing_date.split('/')[0].zfill(2)}/{observing_date.split('/')[1].zfill(2)}/{observing_date.split('/')[2] if len(observing_date.split('/')[2]) == 4 else '20' + observing_date.split('/')[2]}"
@@ -177,7 +179,7 @@ def main(args):
     illum_colour = colour_code_colours[next(i for i, v in enumerate([25, 50, 75, 100]) if v >= moon_illumination)]
 
     errorcode("software", f"Observing date: {observing_date} (night of)")
-    print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<51} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
+    print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<{str_length}} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
 
     # work out whether coordinates or target names have been passed
     sky_coordinates = []
@@ -241,7 +243,7 @@ def main(args):
     moon_seps = [targaltaz.separation(moonaltaz).value for targaltaz in targaltazs]
 
     errorcode("message",
-        f'{"Night + Astronomical Twilight length:":<51} '
+        f'{"Night + astronomical twilight length:":<{str_length}} '
         f"{str(floor((astro_twilight_end - astro_twilight_start).value)).zfill(2)}h {str(floor(((astro_twilight_end - astro_twilight_start).value % 1) * 60)).zfill(2)}m"
         f" - from {(utc_midnight + astro_twilight_start).strftime('%H:%M')} to {(utc_midnight + astro_twilight_end).strftime('%H:%M')}")
 
@@ -249,10 +251,10 @@ def main(args):
         night_start = (times[sunaltaz.alt < -18 * u.deg][0] - utc_midnight).to('hr')
         night_end = (times[sunaltaz.alt < -18 * u.deg][-1] - utc_midnight).to('hr')
         errorcode("message",
-            f"{'Night length:':<51} {str(floor((night_end - night_start).value)).zfill(2)}h {str(floor(((night_end - night_start).value % 1) * 60)).zfill(2)}m"
+            f"{'Night length:':<{str_length}} {str(floor((night_end - night_start).value)).zfill(2)}h {str(floor(((night_end - night_start).value % 1) * 60)).zfill(2)}m"
             f" - from {(utc_midnight + night_start).strftime('%H:%M')} to {(utc_midnight + night_end).strftime('%H:%M')}")
     except IndexError:
-        errorcode("warning", f"{'Night length:':<51} Not on this date")
+        errorcode("warning", f"{'Night length:':<{str_length}} Not on this date")
     errorcode("software", "\nVisibility:")
 
     if plot:
@@ -294,7 +296,7 @@ def main(args):
         pm = '+' if dec > 0 else '-'
         dec_str = pm + f"{abs(dec):.5f}°".zfill(9)
         ra_str = f"{ra:.5f}°".zfill(10)
-        target_out_str = f'{f"{target} ":<25}' f'{f"({ra_str}, {dec_str}):":<26}'
+        target_out_str = f'{f"{target} ":<{str_length-26}}' f'{f"({ra_str}, {dec_str}):":<{26}}'
         if np.any(above_min_alt & dark_time):
             target_start = times[above_min_alt & dark_time][0]
             obs_starts.append(target_start)
@@ -324,13 +326,12 @@ def main(args):
                     try:
                         target_start = times[np.where(np.diff(above_min_alt.astype(int)) == 1)[0][0]]
                         target_end = times[np.where(np.diff(above_min_alt.astype(int)) == -1)[0][0]]
-                        errorcode("warning",
-                            f'{target_out_str} is not visible on this night - unobstructed between {target_start.strftime("%H:%M")} and {target_end.strftime("%H:%M")}')
+                        print(
+                            Style.BRIGHT + target_out_str + Fore.YELLOW + f' is not visible on this night - unobstructed between {target_start.strftime("%H:%M")} and {target_end.strftime("%H:%M")}' + Style.RESET_ALL)
                     except IndexError:
-                        errorcode("warning", f"{target_out_str} is not visible on this date")
+                        print(Style.BRIGHT + target_out_str + Fore.YELLOW + f" is not visible on this date" + Style.RESET_ALL)
                 else:
-                    errorcode("warning",
-                        f"{target_out_str} is never visible from the {obs.name}")
+                    print(Style.BRIGHT + target_out_str + Fore.RED + f" is never visible from the {obs.name}" + Style.RESET_ALL)
 
         if plot:
             sc = plt.scatter(delta_midnight, targaltaz.alt, label=target, s=1,
