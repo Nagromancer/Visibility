@@ -103,7 +103,7 @@ def errorcode(API, message):
     Error message written to bash
     """
     if API == 'software':
-        print(Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL)
+        print(Style.BRIGHT + Fore.MAGENTA + message + Style.RESET_ALL)
     if API == 'module':
         print(Style.BRIGHT + Fore.GREEN + message + Style.RESET_ALL)
     if API == 'message':
@@ -173,9 +173,11 @@ def main(args):
     moon.compute(obs_site_ephem)
     moon_illumination = moon.moon_phase * 100
 
-    errorcode("software", f"Observing date: {observing_date} (night of)")
-    errorcode("message",  f"Moon phase at solar midnight: {' ' * 21} {moon_illumination:.0f}%")
+    colour_code_colours = [Fore.BLUE, Fore.GREEN, Fore.YELLOW, Fore.RED]
+    illum_colour = colour_code_colours[next(i for i, v in enumerate([25, 50, 75, 100]) if v >= moon_illumination)]
 
+    errorcode("software", f"Observing date: {observing_date} (night of)")
+    print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<51} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
 
     # work out whether coordinates or target names have been passed
     try:
@@ -239,10 +241,10 @@ def main(args):
         night_start = (times[sunaltaz.alt < -18 * u.deg][0] - utc_midnight).to('hr')
         night_end = (times[sunaltaz.alt < -18 * u.deg][-1] - utc_midnight).to('hr')
         errorcode("message",
-            f"Night length: {' ' * 37} {str(floor((night_end - night_start).value)).zfill(2)}h {str(floor(((night_end - night_start).value % 1) * 60)).zfill(2)}m"
+            f"{'Night length:':<51} {str(floor((night_end - night_start).value)).zfill(2)}h {str(floor(((night_end - night_start).value % 1) * 60)).zfill(2)}m"
             f" - from {(utc_midnight + night_start).strftime('%H:%M')} to {(utc_midnight + night_end).strftime('%H:%M')}")
     except IndexError:
-        errorcode("warning", f"Night length: {' ' * 37} Not on this date")
+        errorcode("warning", f"{'Night length:':<51} Not on this date")
     errorcode("software", "\nVisibility:")
 
     if plot:
@@ -281,16 +283,29 @@ def main(args):
             ra = sky_coordinate.ra.value[0]
             ss = True
 
-        target_out_str = f'{f"{target} ({ra:.5f}°, {dec:.5f}°):":<51}'
+        pm = '+' if dec > 0 else ''
+        target_out_str = f'{f"{target} ":<25}' f'{f"({ra:.5f}°, {pm}{dec:.5f}°):":<26}'
         if np.any(above_min_alt & dark_time):
             target_start = times[above_min_alt & dark_time][0]
             obs_starts.append(target_start)
             target_end = times[above_min_alt & dark_time][-1]
             obs_ends.append(target_end)
             target_up_moon_sep = moon_sep[above_min_alt & dark_time]
-            errorcode("message",
-                f"{f'{target_out_str} {str(floor((target_end - target_start).value * 24)).zfill(2)}h'}" +
-                f" {str(floor(((target_end - target_start).value * 24 % 1) * 60)).zfill(2)}m - from {target_start.strftime('%H:%M')} to {target_end.strftime('%H:%M')} - Mean lunar separation: {target_up_moon_sep.mean():.1f}°")
+            obs_time_hours = (target_end - target_start).value * 24
+            obs_time_colour = colour_code_colours[::-1][next(i for i, v in enumerate([2, 4, 6, 10]) if v >= obs_time_hours)]
+            mean_lunar_sep = 75
+            lunar_sep_colour = colour_code_colours[::-1][next(i for i, v in enumerate([30, 60, 90, 180]) if v >= mean_lunar_sep)]
+            print(Style.BRIGHT +
+                f"{target_out_str} " +
+                obs_time_colour +
+                f"{str(floor((target_end - target_start).value * 24)).zfill(2)}h"
+                f" {str(floor(((target_end - target_start).value * 24 % 1) * 60)).zfill(2)}m" +
+                Style.RESET_ALL + Style.BRIGHT +
+                f" - from {target_start.strftime('%H:%M')} to {target_end.strftime('%H:%M')} - """
+                f"Mean lunar separation: " +
+                lunar_sep_colour +
+                f"{mean_lunar_sep:.1f}°"
+                  + Style.RESET_ALL)
         else:
             if ss:
                 errorcode("warning", f"{target_out_str} is a solar system object not visible on this night.")
@@ -299,7 +314,7 @@ def main(args):
                     try:
                         target_start = times[np.where(np.diff(above_min_alt.astype(int)) == 1)[0][0]]
                         target_end = times[np.where(np.diff(above_min_alt.astype(int)) == -1)[0][0]]
-                        print(
+                        errorcode("warning",
                             f'{target_out_str} is not visible on this night - unobstructed between {target_start.strftime("%H:%M")} and {target_end.strftime("%H:%M")}')
                     except IndexError:
                         errorcode("warning", f"{target_out_str} is not visible on this date")
@@ -382,7 +397,7 @@ def main(args):
             if lh.get_label() == 'Moon':
                 lh.set_label(f'{lh.get_label()} ({moon_illumination:.0f}%)')
         if len(new_leg) == 2:
-            print("No targets visible - cannot plot")
+            errorcode("error", "No targets visible - cannot plot")
             exit()
 
         plt.legend(handles=new_leg, bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.,
