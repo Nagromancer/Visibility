@@ -457,8 +457,8 @@ def main(args):
                 "pipeline": {
                     "prefix": "evening-flat"
                 },
-                "blue": {},
-                "red": {}
+                "blue": {"bin": [2, 2]},
+                "red": {"bin": [2, 2]}
             }
         ]
         for target, sky_coordinate, target_start, target_end in zip(targets, sky_coordinates, obs_starts, obs_ends):
@@ -479,16 +479,20 @@ def main(args):
                     "end": str(target_end.iso).replace(" ", "T").split(".")[0] + "Z",
                     "ra": round(sky_coordinate.ra.value, 5),
                     "dec": round(sky_coordinate.dec.value, 5),
+                    "blind_offset_dra": 0.25,
+                    "blind_offset_ddec": 0,
                     "guide_camera": "blue",
                     "pipeline": {
                         "object": target,
                         "prefix": target.replace(" ", "_"),
                     },
                     "red": {
-                        "exposure": 30
+                        "exposure": 30,
+                        "bin": [2, 2]
                     },
                     "blue": {
-                        "exposure": 30
+                        "exposure": 30,
+                        "bin": [2, 2]
                     }
                 }
             ]
@@ -499,8 +503,8 @@ def main(args):
                 "pipeline": {
                     "prefix": "morning-flat"
                 },
-                "blue": {},
-                "red": {}
+                "blue": {"bin": [2, 2]},
+                "red": {"bin": [2, 2]}
             }
         ]
         json_dict = {
