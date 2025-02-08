@@ -184,6 +184,7 @@ def main(args):
     targets = []
     idx = 0
     names = args.names
+    unnamed_targets = False
     while idx < len(args.targets):
         try:
             # check if each of ra and dec strings contain two colons
@@ -203,6 +204,7 @@ def main(args):
                 targets.append(names.pop(0))
             else:
                 targets.append(f"Target {len(targets) + 1}")
+                unnamed_targets = True
             idx += 2
             continue
         except ValueError as e:
@@ -433,6 +435,9 @@ def main(args):
         # do not allow if ss objects are present
         if np.any([isinstance(sky_coordinate.dec.value, np.ndarray) for sky_coordinate in sky_coordinates]):
             errorcode("error", "Solar system objects present - cannot create json file")
+            exit()
+        if unnamed_targets:
+            errorcode("error", "Unnamed targets present - cannot create json file")
             exit()
         out_path = Path(args.json) / f'{reverse_date}.json'
         dome_open = flat_start - 2 * u.min
