@@ -126,6 +126,9 @@ def main(args):
     quantity_support()
     plot = args.plot
     observing_date = datetime.datetime.now().strftime("%d/%m/%Y") if args.date is None else args.date
+    # check for yyyymmdd format
+    if len(observing_date) == 8 and observing_date.isdigit():
+        observing_date = f"{observing_date[6:]}/{observing_date[4:6]}/{observing_date[:4]}"
 
     # set the observatory object based on the command line argument
     obs = observatories[args.observatory]
