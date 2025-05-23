@@ -73,7 +73,7 @@ twist_min_alts = np.array(
 twist = Observatory("Twenty Inch Survey Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2348 * u.m, twist_min_alts,
                     6 * u.hourangle, -12 * u.deg)
 w1m = Observatory("Warwick One Metre Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2348 * u.m, 30 * u.deg,
-                  70 / 15 * u.hourangle, -12 * u.deg, 89 * u.deg, -20 * u.deg)
+                  66.9 / 15 * u.hourangle, -12 * u.deg, 89 * u.deg, -20 * u.deg)
 INT = Observatory("Isaac Newton Telescope", 28.760255 * u.deg, -17.879284 * u.deg, 2396 * u.m, 33 * u.deg,
                   6 * u.hourangle, -18 * u.deg)
 ngts = Observatory("Next Generation Transit Survey", -24.615752 * u.deg, -70.391029 * u.deg, 2433 * u.m, 30 * u.deg,
@@ -508,8 +508,7 @@ def main(args):
                     "pipeline": {
                         "prefix": "evening-flat"
                     },
-                    "blue": {"bin": [2, 2]},
-                    "red": {"bin": [2, 2]}
+                    "blue": {"bin": [2, 2]}
                 }
             ]
         else:
@@ -519,13 +518,11 @@ def main(args):
             actions += [
                 {
                     "type": "AutoFocus",
-                    "start": str((target_start - 10 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
+                    "start": str((target_start - 4 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
                     "blue": {
                         "exposure": 5,
                     },
-                    "red": {
-                        "exposure": 5,
-                    },
+                    "expires": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z"
                 },
                 {
                     "type": "ObserveTimeSeries",
@@ -539,10 +536,6 @@ def main(args):
                     "pipeline": {
                         "object": target,
                         "prefix": target.replace(" ", "_"),
-                    },
-                    "red": {
-                        "exposure": 30,
-                        "bin": [2, 2]
                     },
                     "blue": {
                         "exposure": 30,
@@ -558,8 +551,7 @@ def main(args):
                     "pipeline": {
                         "prefix": "morning-flat"
                     },
-                    "blue": {"bin": [2, 2]},
-                    "red": {"bin": [2, 2]}
+                    "blue": {"bin": [2, 2]}
                 }
             ]
         else:
