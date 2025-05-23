@@ -415,9 +415,10 @@ def main(args):
             if g_bp_mag is not None:
                 g_bp_mag_colour = colour_code_colours[next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
                 print(Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
-                predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
-                print(
-                    Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
+                if obs == w1m:
+                    predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
+                    print(
+                        Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
         else:
             if ss:
                 errorcode("warning", f"{target_out_str} is a solar system object not visible on this night.")
@@ -435,9 +436,10 @@ def main(args):
                                 Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
                             mean_cube_airmass = np.mean(
                                 (1 / np.cos(np.radians(90 - alt[above_min_alt]))) ** 3)
-                            predicted_noise = get_aperture_noise(0.5, mean_cube_airmass, g_bp_mag)
-                            print(
-                                Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
+                            if obs == w1m:
+                                predicted_noise = get_aperture_noise(0.5, mean_cube_airmass, g_bp_mag)
+                                print(
+                                    Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
                     except IndexError:
                         print(
                             Style.BRIGHT + target_out_str + Fore.YELLOW + f" is not visible on this date" + Style.RESET_ALL)
