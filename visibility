@@ -19,6 +19,7 @@ from astropy.visualization import quantity_support
 from matplotlib.legend_handler import HandlerLine2D
 from matplotlib.lines import Line2D
 from path import Path
+from bp_lookup import get_bp_mag
 
 
 class Observatory:
@@ -168,6 +169,35 @@ def main(args):
     solar_midnight = (times[sunaltaz.alt.argmin()] - utc_midnight).to('hr')
     astro_twilight_start = (times[sunaltaz.alt < -12 * u.deg][0] - utc_midnight).to('hr')
     astro_twilight_end = (times[sunaltaz.alt < -12 * u.deg][-1] - utc_midnight).to('hr')
+
+    # get moon_rise and moon_set times
+    idx_rise = np.where((moonaltaz.alt[:-1] < 0) & (moonaltaz.alt[1:] >= 0))[0]
+    if len(idx_rise) == 0:
+        print("Moon does not rise in this time range.")
+        moonrise_time = None
+    else:
+        i = idx_rise[0]
+        # Linear interpolation to find the crossing time
+        t0, t1 = times[i], times[i + 1]
+        a0, a1 = moonaltaz.alt[i], moonaltaz.alt[i + 1]
+
+        # Fraction of time between t0 and t1 where altitude crosses 0
+        frac = -a0 / (a1 - a0)
+        moonrise_time = t0 + (t1 - t0) * frac
+    idx_set = np.where((moonaltaz.alt[:-1] > 0) & (moonaltaz.alt[1:] <= 0))[0]
+    if len(idx_set) == 0:
+        print("Moon does not set in this time range.")
+        moonset_time = None
+    else:
+        i = idx_set[0]
+        # Linear interpolation to find the crossing time
+        t0, t1 = times[i], times[i + 1]
+        a0, a1 = moonaltaz.alt[i], moonaltaz.alt[i + 1]
+
+        # Fraction of time between t0 and t1 where altitude crosses 0
+        frac = -a0 / (a1 - a0)
+        moonset_time = t0 + (t1 - t0) * frac
+
     flat_time = sunaltaz.alt < -4 * u.deg
     flat_start = times[flat_time][0]
     flat_end = times[flat_time][-1]
@@ -186,10 +216,13 @@ def main(args):
     illum_colour = colour_code_colours[next(i for i, v in enumerate([25, 50, 75, 100]) if v >= moon_illumination)]
     errorcode("software", f"Observing date: {observing_date} (night of)")
     print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<{str_length}} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
+    print(Style.BRIGHT + f"{'Moon up from:':<{str_length}} " + f"{(moonrise_time).strftime('%H:%M') if moonrise_time is not None else '-'} to {(moonset_time).strftime('%H:%M') if moonset_time is not None else '-'}" + Style.RESET_ALL)
+    print("")
 
     # get the targets and their coordinates, regardless of whether they are named or given as coordinates
     sky_coordinates = []
     targets = []
+    g_bp_mags = []
     idx = 0
     names = args.names
     unnamed_targets = False
@@ -219,24 +252,29 @@ def main(args):
             try:
                 sky_coordinates.append(get_body(args.targets[idx], times))
                 targets.append(args.targets[idx])
+                g_bp_mags.append(None)
                 idx += 1
                 continue
             except KeyError:
                 try:
                     sky_coordinates.append(SkyCoord.from_name(args.targets[idx]))
                     targets.append(args.targets[idx])
+                    # get gaia bp mag
+                    g_bp_mags.append(get_bp_mag(args.targets[idx]))
                     idx += 1
                     continue
                 except name_resolve.NameResolveError:
                     try:
                         sky_coordinates.append(SkyCoord.from_name(args.targets[idx].replace(' ', '')))
                         targets.append(args.targets[idx])
+                        g_bp_mags.append(get_bp_mag(args.targets[idx].replace(' ', '')))
                         idx += 1
                         continue
                     except name_resolve.NameResolveError:
                         try:
                             sky_coordinates.append(SkyCoord.from_name(args.targets[idx].replace(' ', '-')))
                             targets.append(args.targets[idx])
+                            g_bp_mags.append(get_bp_mag(args.targets[idx].replace(' ', '-')))
                             idx += 1
                             continue
                         except name_resolve.NameResolveError:
@@ -319,7 +357,7 @@ def main(args):
     # loop over the targets and display their visibility
     obs_starts = []
     obs_ends = []
-    for target, targaltaz, moon_sep, sky_coordinate in zip(targets, targaltazs, moon_seps, sky_coordinates):
+    for target, targaltaz, moon_sep, sky_coordinate, g_bp_mag in zip(targets, targaltazs, moon_seps, sky_coordinates, g_bp_mags):
         alt = targaltaz.alt.value
         az = targaltaz.az.value
         visibility = obs.is_unobstructed(alt, az, times)
@@ -359,6 +397,9 @@ def main(args):
                 lunar_sep_colour +
                 f"{mean_lunar_sep:.1f}°"
                   + Style.RESET_ALL)
+            if g_bp_mag is not None:
+                g_bp_mag_colour = colour_code_colours[next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
+                print(Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
         else:
             if ss:
                 errorcode("warning", f"{target_out_str} is a solar system object not visible on this night.")
@@ -369,6 +410,11 @@ def main(args):
                         target_end = times[np.where(np.diff(above_min_alt.astype(int)) == -1)[0][0]]
                         print(
                             Style.BRIGHT + target_out_str + Fore.YELLOW + f' is not visible on this night - unobstructed between {target_start.strftime("%H:%M")} and {target_end.strftime("%H:%M")}' + Style.RESET_ALL)
+                        if g_bp_mag is not None:
+                            g_bp_mag_colour = colour_code_colours[
+                                next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
+                            print(
+                                Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
                     except IndexError:
                         print(Style.BRIGHT + target_out_str + Fore.YELLOW + f" is not visible on this date" + Style.RESET_ALL)
                 else:
