@@ -435,7 +435,7 @@ def main(args):
                                 Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
                             mean_cube_airmass = np.mean(
                                 (1 / np.cos(np.radians(90 - alt[above_min_alt]))) ** 3)
-                            predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
+                            predicted_noise = get_aperture_noise(0.5, mean_cube_airmass, g_bp_mag)
                             print(
                                 Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
                     except IndexError:
