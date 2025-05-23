@@ -510,7 +510,7 @@ def main(args):
                         plt.annotate("WNW", (delta_midnight[i], targaltaz.alt[i]),
                                      xytext=(delta_midnight[i], targaltaz.alt[i] + 1 * u.deg), ha='center', va='bottom',
                                      color=plot_color)
-
+        print("")
     # Plot the sun and moon and finish the plot
     if plot:
         leg = plt.legend()
@@ -552,7 +552,7 @@ def main(args):
 
     # Create json file
     if args.json is not None:
-        errorcode("software", "\nCreating json file...")
+        errorcode("software", "Creating json file...")
         # currently only works for w1m
         if obs != w1m:
             errorcode("error", "Can only create json file for W1m")
