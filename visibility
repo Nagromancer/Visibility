@@ -418,7 +418,7 @@ def main(args):
                 if obs == w1m:
                     predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
                     print(
-                        Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
+                        Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour" + Style.RESET_ALL)
         else:
             if ss:
                 errorcode("warning", f"{target_out_str} is a solar system object not visible on this night.")
@@ -439,7 +439,7 @@ def main(args):
                             if obs == w1m:
                                 predicted_noise = get_aperture_noise(0.5, mean_cube_airmass, g_bp_mag)
                                 print(
-                                    Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
+                                    Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour" + Style.RESET_ALL)
                     except IndexError:
                         print(
                             Style.BRIGHT + target_out_str + Fore.YELLOW + f" is not visible on this date" + Style.RESET_ALL)
