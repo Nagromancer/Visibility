@@ -20,10 +20,12 @@ from matplotlib.legend_handler import HandlerLine2D
 from matplotlib.lines import Line2D
 from path import Path
 from bp_lookup import get_bp_mag
+from w1m_noise import get_aperture_noise
 
 
 class Observatory:
-    def __init__(self, name, lat, lon, height, min_alt, max_hr_angle, max_sun_alt, max_dec=None, min_dec=None, max_flat=None, min_flat=None):
+    def __init__(self, name, lat, lon, height, min_alt, max_hr_angle, max_sun_alt, max_dec=None, min_dec=None,
+                 max_flat=None, min_flat=None):
         self.name = name
         self.lat = lat
         self.lon = lon
@@ -215,8 +217,10 @@ def main(args):
     colour_code_colours = [Fore.BLUE, Fore.GREEN, Fore.YELLOW, Fore.RED]
     illum_colour = colour_code_colours[next(i for i, v in enumerate([25, 50, 75, 100]) if v >= moon_illumination)]
     errorcode("software", f"Observing date: {observing_date} (night of)")
-    print(Style.BRIGHT + f"{'Moon illumination at solar midnight:':<{str_length}} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
-    print(Style.BRIGHT + f"{'Moon up from:':<{str_length}} " + f"{(moonrise_time).strftime('%H:%M') if moonrise_time is not None else '-'} to {(moonset_time).strftime('%H:%M') if moonset_time is not None else '-'}" + Style.RESET_ALL)
+    print(
+        Style.BRIGHT + f"{'Moon illumination at solar midnight:':<{str_length}} " + illum_colour + f"{moon_illumination:.0f}%" + Style.RESET_ALL)
+    print(
+        Style.BRIGHT + f"{'Moon up from:':<{str_length}} " + f"{(moonrise_time).strftime('%H:%M') if moonrise_time is not None else '-'} to {(moonset_time).strftime('%H:%M') if moonset_time is not None else '-'}" + Style.RESET_ALL)
     print("")
 
     # get the targets and their coordinates, regardless of whether they are named or given as coordinates
@@ -288,15 +292,21 @@ def main(args):
         evening_flat_start = times[sunaltaz.alt < obs.max_flat][0]
         morning_flat_end = times[sunaltaz.alt < obs.min_flat][-1]
         # get the sun alt-az at these times
-        sunaltaz_evening_flat_start = get_sun(evening_flat_start).transform_to(AltAz(obstime=evening_flat_start, location=obs_site))
-        sunaltaz_morning_flat_start = get_sun(morning_flat_end).transform_to(AltAz(obstime=morning_flat_end, location=obs_site))
-        moonaltaz_evening_flat_start = get_body("moon", evening_flat_start).transform_to(AltAz(obstime=evening_flat_start, location=obs_site))
-        moonaltaz_morning_flat_start = get_body("moon", morning_flat_end).transform_to(AltAz(obstime=morning_flat_end, location=obs_site))
+        sunaltaz_evening_flat_start = get_sun(evening_flat_start).transform_to(
+            AltAz(obstime=evening_flat_start, location=obs_site))
+        sunaltaz_morning_flat_start = get_sun(morning_flat_end).transform_to(
+            AltAz(obstime=morning_flat_end, location=obs_site))
+        moonaltaz_evening_flat_start = get_body("moon", evening_flat_start).transform_to(
+            AltAz(obstime=evening_flat_start, location=obs_site))
+        moonaltaz_morning_flat_start = get_body("moon", morning_flat_end).transform_to(
+            AltAz(obstime=morning_flat_end, location=obs_site))
         evening_flat_az = (sunaltaz_evening_flat_start.az.deg + 180) % 360 * u.deg
         morning_flat_az = (sunaltaz_morning_flat_start.az.deg + 180) % 360 * u.deg
         morning_flat_alt = evening_flat_alt = 75 * u.deg
-        evening_flat_alt_az = AltAz(alt=evening_flat_alt, az=evening_flat_az, location=obs_site, obstime=evening_flat_start)
-        morning_flat_alt_az = AltAz(alt=morning_flat_alt, az=morning_flat_az, location=obs_site, obstime=morning_flat_end)
+        evening_flat_alt_az = AltAz(alt=evening_flat_alt, az=evening_flat_az, location=obs_site,
+                                    obstime=evening_flat_start)
+        morning_flat_alt_az = AltAz(alt=morning_flat_alt, az=morning_flat_az, location=obs_site,
+                                    obstime=morning_flat_end)
         # get the lunar separation at these times
         moon_sep_evening_flat_start = moonaltaz_evening_flat_start.separation(evening_flat_alt_az).value
         moon_sep_morning_flat_start = moonaltaz_morning_flat_start.separation(morning_flat_alt_az).value
@@ -320,15 +330,15 @@ def main(args):
 
     # display the night + twilight lengths
     errorcode("message",
-        f'{"Night + astronomical twilight length:":<{str_length}} '
-        f"{str(floor((astro_twilight_end - astro_twilight_start).value)).zfill(2)}h {str(floor(((astro_twilight_end - astro_twilight_start).value % 1) * 60)).zfill(2)}m"
-        f" - from {(utc_midnight + astro_twilight_start).strftime('%H:%M')} to {(utc_midnight + astro_twilight_end).strftime('%H:%M')}")
+              f'{"Night + astronomical twilight length:":<{str_length}} '
+              f"{str(floor((astro_twilight_end - astro_twilight_start).value)).zfill(2)}h {str(floor(((astro_twilight_end - astro_twilight_start).value % 1) * 60)).zfill(2)}m"
+              f" - from {(utc_midnight + astro_twilight_start).strftime('%H:%M')} to {(utc_midnight + astro_twilight_end).strftime('%H:%M')}")
     try:
         night_start = (times[sunaltaz.alt < -18 * u.deg][0] - utc_midnight).to('hr')
         night_end = (times[sunaltaz.alt < -18 * u.deg][-1] - utc_midnight).to('hr')
         errorcode("message",
-            f"{'Night length:':<{str_length}} {str(floor((night_end - night_start).value)).zfill(2)}h {str(floor(((night_end - night_start).value % 1) * 60)).zfill(2)}m"
-            f" - from {(utc_midnight + night_start).strftime('%H:%M')} to {(utc_midnight + night_end).strftime('%H:%M')}")
+                  f"{'Night length:':<{str_length}} {str(floor((night_end - night_start).value)).zfill(2)}h {str(floor(((night_end - night_start).value % 1) * 60)).zfill(2)}m"
+                  f" - from {(utc_midnight + night_start).strftime('%H:%M')} to {(utc_midnight + night_end).strftime('%H:%M')}")
     except IndexError:
         errorcode("warning", f"{'Night length:':<{str_length}} Not on this date")
 
@@ -357,7 +367,8 @@ def main(args):
     # loop over the targets and display their visibility
     obs_starts = []
     obs_ends = []
-    for target, targaltaz, moon_sep, sky_coordinate, g_bp_mag in zip(targets, targaltazs, moon_seps, sky_coordinates, g_bp_mags):
+    for target, targaltaz, moon_sep, sky_coordinate, g_bp_mag in zip(targets, targaltazs, moon_seps, sky_coordinates,
+                                                                     g_bp_mags):
         alt = targaltaz.alt.value
         az = targaltaz.az.value
         visibility = obs.is_unobstructed(alt, az, times)
@@ -375,7 +386,7 @@ def main(args):
         pm = '+' if dec > 0 else '-'
         dec_str = pm + f"{abs(dec):.5f}°".zfill(9)
         ra_str = f"{ra:.5f}°".zfill(10)
-        target_out_str = f'{f"{target} ":<{str_length-26}}' f'{f"({ra_str}, {dec_str}):":<{26}}'
+        target_out_str = f'{f"{target} ":<{str_length - 26}}' f'{f"({ra_str}, {dec_str}):":<{26}}'
         if np.any(above_min_alt & dark_time):
             target_start = times[above_min_alt & dark_time][0]
             obs_starts.append(target_start)
@@ -383,23 +394,30 @@ def main(args):
             obs_ends.append(target_end)
             target_up_moon_sep = moon_sep[above_min_alt & dark_time]
             obs_time_hours = (target_end - target_start).value * 24
-            obs_time_colour = colour_code_colours[::-1][next(i for i, v in enumerate([2, 4, 6, 10]) if v >= obs_time_hours)]
+            obs_time_colour = colour_code_colours[::-1][
+                next(i for i, v in enumerate([2, 4, 6, 10]) if v >= obs_time_hours)]
+            # calculate the mean cube airmass while the target is up
+            mean_cube_airmass = np.mean((1 / np.cos(np.radians(90 - alt[above_min_alt & dark_time]))) ** 3)
             mean_lunar_sep = np.mean(target_up_moon_sep)
-            lunar_sep_colour = colour_code_colours[::-1][next(i for i, v in enumerate([30, 60, 90, 180]) if v >= mean_lunar_sep)]
+            lunar_sep_colour = colour_code_colours[::-1][
+                next(i for i, v in enumerate([30, 60, 90, 180]) if v >= mean_lunar_sep)]
             print(Style.BRIGHT +
-                f"{target_out_str} " +
-                obs_time_colour +
-                f"{str(floor((target_end - target_start).value * 24)).zfill(2)}h"
-                f" {str(floor(((target_end - target_start).value * 24 % 1) * 60)).zfill(2)}m" +
-                Style.RESET_ALL + Style.BRIGHT +
-                f" - from {target_start.strftime('%H:%M')} to {target_end.strftime('%H:%M')} - """
-                f"Mean lunar separation: " +
-                lunar_sep_colour +
-                f"{mean_lunar_sep:.1f}°"
+                  f"{target_out_str} " +
+                  obs_time_colour +
+                  f"{str(floor((target_end - target_start).value * 24)).zfill(2)}h"
+                  f" {str(floor(((target_end - target_start).value * 24 % 1) * 60)).zfill(2)}m" +
+                  Style.RESET_ALL + Style.BRIGHT +
+                  f" - from {target_start.strftime('%H:%M')} to {target_end.strftime('%H:%M')} - """
+                  f"Mean lunar separation: " +
+                  lunar_sep_colour +
+                  f"{mean_lunar_sep:.1f}°"
                   + Style.RESET_ALL)
             if g_bp_mag is not None:
                 g_bp_mag_colour = colour_code_colours[next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
                 print(Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
+                predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
+                print(
+                    Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
         else:
             if ss:
                 errorcode("warning", f"{target_out_str} is a solar system object not visible on this night.")
@@ -415,10 +433,17 @@ def main(args):
                                 next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
                             print(
                                 Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
+                            mean_cube_airmass = np.mean(
+                                (1 / np.cos(np.radians(90 - alt[above_min_alt]))) ** 3)
+                            predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
+                            print(
+                                Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour\n" + Style.RESET_ALL)
                     except IndexError:
-                        print(Style.BRIGHT + target_out_str + Fore.YELLOW + f" is not visible on this date" + Style.RESET_ALL)
+                        print(
+                            Style.BRIGHT + target_out_str + Fore.YELLOW + f" is not visible on this date" + Style.RESET_ALL)
                 else:
-                    print(Style.BRIGHT + target_out_str + Fore.RED + f" is never visible from the {obs.name}" + Style.RESET_ALL)
+                    print(
+                        Style.BRIGHT + target_out_str + Fore.RED + f" is never visible from the {obs.name}" + Style.RESET_ALL)
 
         # plot the visibility, showing the azimuth as cardinal directions
         if plot:
@@ -620,11 +645,14 @@ if __name__ == '__main__':
 
     parser.add_argument('observatory', type=str, choices=['twist', 'ngts', 'tmo', 'INT', 'w1m'],
                         help='Observatory to calculate visibility for')
-    parser.add_argument('targets', type=str, nargs='+', help='target(s) (or hh:mm:ss ±dd:mm:ss / ddd.dddd ±dd.dddd) to check visibility for')
+    parser.add_argument('targets', type=str, nargs='+',
+                        help='target(s) (or hh:mm:ss ±dd:mm:ss / ddd.dddd ±dd.dddd) to check visibility for')
     parser.add_argument('--names', type=str, nargs='+', help='name(s) of target(s) - used if RA/Dec given')
-    parser.add_argument('--plot',  action='store_true', help='Plot visibility (default: False)')
-    parser.add_argument('--date',  type=str, default=None, metavar='dd/mm/yyyy or d/m/yy or yyyymmdd', help='Observing date (default: today)')
-    parser.add_argument('--json',  type=str, default=None, metavar='output/directory', help='Directory to save json file to (default: no json file)')
+    parser.add_argument('--plot', action='store_true', help='Plot visibility (default: False)')
+    parser.add_argument('--date', type=str, default=None, metavar='dd/mm/yyyy or d/m/yy or yyyymmdd',
+                        help='Observing date (default: today)')
+    parser.add_argument('--json', type=str, default=None, metavar='output/directory',
+                        help='Directory to save json file to (default: no json file)')
 
     args = parser.parse_args()
     main(args)
