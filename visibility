@@ -251,6 +251,7 @@ def main(args):
                 targets.append(f"Target {len(targets) + 1}")
                 unnamed_targets = True
             idx += 2
+            g_bp_mags.append(None)
             continue
         except ValueError as e:
             try:
