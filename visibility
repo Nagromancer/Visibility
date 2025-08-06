@@ -417,7 +417,7 @@ def main(args):
                 g_bp_mag_colour = colour_code_colours[next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
                 print(Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
                 if obs == w1m:
-                    predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
+                    predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)[0]
                     print(
                         Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour" + Style.RESET_ALL)
         else:
@@ -554,13 +554,13 @@ def main(args):
     # Create json file
     if args.json is not None:
         errorcode("software", "Creating json file...")
-        # currently only works for w1m
-        if obs != w1m:
-            errorcode("error", "Can only create json file for W1m")
-            exit()
         # do not allow if ss objects are present
         if np.any([isinstance(sky_coordinate.dec.value, np.ndarray) for sky_coordinate in sky_coordinates]):
             errorcode("error", "Solar system objects present - cannot create json file")
+            exit()
+        # currently only works for w1m
+        if obs != w1m and obs != twist:
+            errorcode("error", "Can only create json file for W1m or TWIST")
             exit()
         # if unnamed_targets:
         #     errorcode("error", "Unnamed targets present - cannot create json file")
@@ -582,40 +582,42 @@ def main(args):
                     "pipeline": {
                         "prefix": "evening-flat"
                     },
-                    "blue": {"bin": [2, 2]}
+                    "blue" if obs == w1m else "camera": {"bin": [2, 2]} if obs == w1m else {"bin": 1}
                 }
             ]
         else:
             errorcode("warning", "Moon too close to evening flat field - skipping evening flats")
             actions = []
         for target, sky_coordinate, target_start, target_end in zip(targets, sky_coordinates, obs_starts, obs_ends):
+            obs_series = {
+                "type": "ObserveTimeSeries",
+                "start": str(target_start.iso).replace(" ", "T").split(".")[0] + "Z",
+                "end": str(target_end.iso).replace(" ", "T").split(".")[0] + "Z",
+                "ra": round(sky_coordinate.ra.value, 5),
+                "dec": round(sky_coordinate.dec.value, 5),
+                "pipeline": {
+                    "object": target,
+                    "prefix": target.replace(" ", "_"),
+                },
+                "blue" if obs == w1m else "camera": {
+                    "exposure": 30 if obs == w1m else 10,
+                    "bin": [2, 2] if obs == w1m else 1,
+                },
+            }
+            if obs == w1m:
+                obs_series["guide_camera"] = "blue"
+                obs_series["blind_offset_dra"] = 0.25
+                obs_series["blind_offset_ddec"] = 0
             actions += [
                 {
                     "type": "AutoFocus",
                     "start": str((target_start - 4 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
-                    "blue": {
+                    "blue" if obs == w1m else "camera": {
                         "exposure": 5,
                     },
                     "expires": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z"
                 },
-                {
-                    "type": "ObserveTimeSeries",
-                    "start": str(target_start.iso).replace(" ", "T").split(".")[0] + "Z",
-                    "end": str(target_end.iso).replace(" ", "T").split(".")[0] + "Z",
-                    "ra": round(sky_coordinate.ra.value, 5),
-                    "dec": round(sky_coordinate.dec.value, 5),
-                    "blind_offset_dra": 0.25,
-                    "blind_offset_ddec": 0,
-                    "guide_camera": "blue",
-                    "pipeline": {
-                        "object": target,
-                        "prefix": target.replace(" ", "_"),
-                    },
-                    "blue": {
-                        "exposure": 30,
-                        "bin": [2, 2]
-                    }
-                }
+                obs_series
             ]
         if moon_sep_morning_flat_start > flat_separation_limit:
             actions += [
@@ -625,7 +627,7 @@ def main(args):
                     "pipeline": {
                         "prefix": "morning-flat"
                     },
-                    "blue": {"bin": [2, 2]}
+                    "blue" if obs == w1m else "camera": {"bin": [2, 2]} if obs == w1m else {"bin": 1},
                 }
             ]
         else:
