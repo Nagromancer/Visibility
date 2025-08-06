@@ -582,7 +582,7 @@ def main(args):
                     "pipeline": {
                         "prefix": "evening-flat"
                     },
-                    "blue" if obs == w1m else "camera": {"bin": [2, 2]} if obs == w1m else {"bin": 1}
+                    "blue" if obs == w1m else "camera": {"bin": [2, 2]} if obs == w1m else {"bin": 1, "mode": "hdr"}
                 }
             ]
         else:
@@ -599,10 +599,7 @@ def main(args):
                     "object": target,
                     "prefix": target.replace(" ", "_"),
                 },
-                "blue" if obs == w1m else "camera": {
-                    "exposure": 30 if obs == w1m else 10,
-                    "bin": [2, 2] if obs == w1m else 1,
-                },
+                "blue" if obs == w1m else "camera": {"exposure": 30, "bin": [2, 2],} if obs == w1m else {"exposure": 10, "bin": 1, "mode": "hdr"},
             }
             if obs == w1m:
                 obs_series["guide_camera"] = "blue"
@@ -627,7 +624,7 @@ def main(args):
                     "pipeline": {
                         "prefix": "morning-flat"
                     },
-                    "blue" if obs == w1m else "camera": {"bin": [2, 2]} if obs == w1m else {"bin": 1},
+                    "blue" if obs == w1m else "camera": {"bin": [2, 2]} if obs == w1m else {"bin": 1, "mode": "hdr"},
                 }
             ]
         else:
