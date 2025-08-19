@@ -417,7 +417,7 @@ def main(args):
                 g_bp_mag_colour = colour_code_colours[next(i for i, v in enumerate([13, 15, 18, 24]) if v >= g_bp_mag)]
                 print(Style.BRIGHT + f" - Gaia BP mag: " + g_bp_mag_colour + f"{g_bp_mag:.2f}" + Style.RESET_ALL)
                 if obs == w1m:
-                    predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)[0]
+                    predicted_noise = get_aperture_noise(moon_illumination, mean_cube_airmass, g_bp_mag)
                     print(
                         Style.BRIGHT + f" - Predicted white noise: {predicted_noise:.0f} ppm in one hour" + Style.RESET_ALL)
         else:
@@ -589,33 +589,43 @@ def main(args):
             errorcode("warning", "Moon too close to evening flat field - skipping evening flats")
             actions = []
         for target, sky_coordinate, target_start, target_end in zip(targets, sky_coordinates, obs_starts, obs_ends):
-            obs_series = {
-                "type": "ObserveTimeSeries",
-                "start": str(target_start.iso).replace(" ", "T").split(".")[0] + "Z",
-                "end": str(target_end.iso).replace(" ", "T").split(".")[0] + "Z",
-                "ra": round(sky_coordinate.ra.value, 5),
-                "dec": round(sky_coordinate.dec.value, 5),
-                "pipeline": {
-                    "object": target,
-                    "prefix": target.replace(" ", "_"),
-                },
-                "blue" if obs == w1m else "camera": {"exposure": 30, "bin": [2, 2],} if obs == w1m else {"exposure": 10, "bin": 1, "mode": "hdr"},
-            }
-            if obs == w1m:
-                obs_series["guide_camera"] = "blue"
-                obs_series["blind_offset_dra"] = 0.25
-                obs_series["blind_offset_ddec"] = 0
-            actions += [
-                {
-                    "type": "AutoFocus",
-                    "start": str((target_start - 4 * u.min).iso).replace(" ", "T").split(".")[0] + "Z",
-                    "blue" if obs == w1m else "camera": {
-                        "exposure": 5,
+            # re-focus every n hours
+            refocus_time = args.refocus * u.hour
+            num_runs = int(np.ceil((target_end - target_start).value * 24 / refocus_time.value))
+            for run in range(num_runs):
+                if run != (num_runs - 1):
+                    obs_end = str((target_start + (run + 1) * refocus_time).iso).replace(" ", "T").split(".")[0] + "Z"
+                else:
+                    obs_end = str(target_end.iso).replace(" ", "T").split(".")[0] + "Z"
+                obs_series = {
+                    "type": "ObserveTimeSeries",
+                    "start": str((target_start + run * refocus_time).iso).replace(" ", "T").split(".")[0] + "Z",
+                    "end": obs_end,
+                    "ra": round(sky_coordinate.ra.value, 5),
+                    "dec": round(sky_coordinate.dec.value, 5),
+                    "pipeline": {
+                        "object": target,
+                        "prefix": target.replace(" ", "_"),
                     },
-                    "expires": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z"
-                },
-                obs_series
-            ]
+                    "blue" if obs == w1m else "camera": {"exposure": 30, "bin": [2, 2],} if obs == w1m else {"exposure": 10, "bin": 1, "mode": "hdr"},
+                }
+                if obs == w1m:
+                    obs_series["guide_camera"] = "blue"
+                    obs_series["blind_offset_dra"] = 0
+                    obs_series["blind_offset_ddec"] = 0
+                actions += [
+                    {
+                        "type": "AutoFocus",
+                        "start": str((target_start + run * refocus_time).iso).replace(" ", "T").split(".")[0] + "Z",
+                        "blue" if obs == w1m else "camera": {
+                            "exposure": 5,
+                        },
+                        "expires": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z",
+                        "ra": round(sky_coordinate.ra.value, 5),
+                        "dec": round(sky_coordinate.dec.value, 5),
+                    },
+                    obs_series
+                ]
         if moon_sep_morning_flat_start > flat_separation_limit:
             actions += [
                 {
@@ -655,6 +665,7 @@ if __name__ == '__main__':
                         help='Observing date (default: today)')
     parser.add_argument('--json', type=str, default=None, metavar='output/directory',
                         help='Directory to save json file to (default: no json file)')
+    parser.add_argument('--refocus', type=float, default=12.0, metavar='hours', help='Refocus interval in hours (default: no refocus)')
 
     args = parser.parse_args()
     main(args)
