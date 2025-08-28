@@ -613,6 +613,13 @@ def main(args):
                     obs_series["guide_camera"] = "blue"
                     obs_series["blind_offset_dra"] = 0
                     obs_series["blind_offset_ddec"] = 0
+                # for the backlash parameter of the autofocus action, we need to know the hour angle of the target at the
+                # time of the autofocus.
+                # get the local sidereal time at the time of the autofocus
+                lst = (target_start + run * refocus_time).sidereal_time('apparent', longitude=obs_site.lon).hour * 15
+                ha = ((lst - sky_coordinate.ra.value) % 360) / 15
+                ha = ha if ha <= 12 else ha - 24
+                backlash = ha / 4 * 150
                 actions += [
                     {
                         "type": "AutoFocus",
@@ -623,6 +630,7 @@ def main(args):
                         "expires": str(dome_close.iso).replace(" ", "T").split(".")[0] + "Z",
                         "ra": round(sky_coordinate.ra.value, 5),
                         "dec": round(sky_coordinate.dec.value, 5),
+                        "backlash": int(backlash) if obs == w1m and num_runs > 1 else 0,
                     },
                     obs_series
                 ]
