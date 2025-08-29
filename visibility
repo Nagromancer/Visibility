@@ -619,7 +619,7 @@ def main(args):
                 lst = (target_start + run * refocus_time).sidereal_time('apparent', longitude=obs_site.lon).hour * 15
                 ha = ((lst - sky_coordinate.ra.value) % 360) / 15
                 ha = ha if ha <= 12 else ha - 24
-                backlash = 200 if ha > 0 else -200
+                backlash = -300 if ha > 0 else 300
                 actions += [
                     {
                         "type": "AutoFocus",
